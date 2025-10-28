@@ -8,7 +8,7 @@ from prepare_data_common import __generate_random_string, __write_to_file, __war
 from util.api.confluence_clients import ConfluenceRpcClient, ConfluenceRestClient
 from util.common_util import print_timing
 from util.conf import CONFLUENCE_SETTINGS
-from util.project_paths import (CONFLUENCE_USERS, CONFLUENCE_PAGES, CONFLUENCE_BLOGS, CONFLUENCE_CQLS,
+from util.project_paths import (CONFLUENCE_USERS, CONFLUENCE_PAGES, CONFLUENCE_BLOGS,
                                 CONFLUENCE_CUSTOM_PAGES, CONFLUENCE_WORDS)
 
 __warnings_filter()
@@ -75,8 +75,6 @@ def __create_data_set(rest_client, rpc_client):
 
     dataset[PAGES] = async_pages.get()
     dataset[BLOGS] = async_blogs.get()
-
-    dataset[CQLS] = __generate_cqls(words_count=CQL_WORDS_COUNT)
 
     dataset[CUSTOM_PAGES] = __get_custom_pages(perf_user_api, 5000, CONFLUENCE_SETTINGS.custom_dataset_query)
     print(f'Users count: {len(dataset[USERS])}')
@@ -211,8 +209,6 @@ def write_test_data_to_files(dataset):
     users = [f"{user['user']['username']},{DEFAULT_USER_PASSWORD}" for user in dataset[USERS]]
     __write_to_file(CONFLUENCE_USERS, users)
 
-    __write_to_file(CONFLUENCE_CQLS, dataset[CQLS])
-
     custom_pages = [f"{page['id']},{page['space']['key']}" for page in dataset[CUSTOM_PAGES]]
     __write_to_file(CONFLUENCE_CUSTOM_PAGES, custom_pages)
 
@@ -251,6 +247,20 @@ def __check_license(rest_client):
     print(f"The license expiry date: {expiry_date_human}.\n"
           f"License available seats: {license_remaining_seats['count']}")
 
+def __check_number_of_custom_app(rest_client):
+    try:
+        all_apps = rest_client.get_installed_apps()
+        apps_with_vendor_defined = [app for app in all_apps if 'vendor' in app]
+        non_atlassian_apps = [app for app in apps_with_vendor_defined if 'Atlassian' not in
+                              app['vendor']['name'] and app['userInstalled'] == True]
+        non_atlassian_apps_names = [app['name'] for app in non_atlassian_apps]
+        print(f"Custom application count: {len(non_atlassian_apps)}")
+        if non_atlassian_apps:
+            print(f'Custom app names:')
+            print(*non_atlassian_apps_names, sep='\n')
+    except Exception as e:
+        print(f'ERROR: Could not get the installed applications. Error: {e}')
+
 
 @print_timing('Confluence data preparation')
 def main():
@@ -262,6 +272,7 @@ def main():
     rest_client = ConfluenceRestClient(url, CONFLUENCE_SETTINGS.admin_login, CONFLUENCE_SETTINGS.admin_password,
                                        verify=CONFLUENCE_SETTINGS.secure)
     rpc_client = ConfluenceRpcClient(url, CONFLUENCE_SETTINGS.admin_login, CONFLUENCE_SETTINGS.admin_password)
+    __check_number_of_custom_app(rest_client)
     __is_remote_api_enabled(rest_client)
     __check_license(rest_client)
     __check_for_admin_permissions(rest_client)

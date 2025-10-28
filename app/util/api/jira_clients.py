@@ -1,8 +1,11 @@
 import json
 import string
+import time
+
 from selenium.common.exceptions import WebDriverException
 
-from util.api.abstract_clients import RestClient, JSM_EXPERIMENTAL_HEADERS
+from util.api.abstract_clients import RestClient
+
 from selenium_ui.conftest import retry
 
 BATCH_SIZE_BOARDS = 1000
@@ -201,15 +204,36 @@ class JiraRestClient(RestClient):
     def get_system_info_page(self):
         login_url = f'{self.host}/login.jsp'
         auth_url = f'{self.host}/secure/admin/WebSudoAuthenticate.jspa'
+        tsv_login_url = f'{self.host}/rest/tsv/1.0/authenticate'
         auth_body = {
             'webSudoDestination': '/secure/admin/ViewSystemInfo.jspa',
             'webSudoIsPost': False,
             'webSudoPassword': self.password
         }
-        self.post(login_url, error_msg='Could not login in')
+        tsv_login_body = {"username": self.user,
+                          "password": self.password,
+                          "rememberMe": "True",
+                          "targetUrl": ""
+                          }
+
+        r = self.session.get(login_url)
+        if not r.status_code == 200:
+            raise Exception(f'ERROR: Could not login to Jira with url {login_url}, status code: {r.status_code}')
+        legacy_login = 'login-form-remember-me' in r.text
+        if not legacy_login:
+            print(f'INFO: 2sv login on Jira detected')
+            self.session.post(url=tsv_login_url, json=tsv_login_body)
+        else:
+            self.post(login_url, error_msg='Could not login in')
         auth_body['atl_token'] = self.session.cookies.get_dict()['atlassian.xsrf.token']
-        system_info_html = self._session.post(auth_url, data=auth_body, verify=self.verify)
-        return system_info_html.content.decode("utf-8")
+        number_of_attempts = 5
+        for _ in range(0, number_of_attempts):
+            system_info_html = self.session.post(auth_url, data=auth_body, headers={'X-Atlassian-Token': 'no-check'}, verify=self.verify)
+            if system_info_html.status_code == 200:
+                return system_info_html.content.decode("utf-8")
+            time.sleep(1)
+        print(f"ERROR: Could not get the system information page.")
+        return ""
 
     def get_available_processors(self):
         try:
@@ -284,3 +308,9 @@ class JiraRestClient(RestClient):
                                  'image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
         r = self.get(api_url, "Could not retrieve license details")
         return r.json()
+
+    def get_installed_apps(self):
+        api_url = f'{self.host}/rest/plugins/1.0/'
+        r = self.get(api_url, error_msg="ERROR: Could not get installed plugins.",
+                     headers={'X-Atlassian-Token': 'no-check'})
+        return r.json()['plugins']

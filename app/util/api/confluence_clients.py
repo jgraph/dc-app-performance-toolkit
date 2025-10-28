@@ -190,6 +190,7 @@ class ConfluenceRestClient(RestClient):
         groups = [group['name'] for group in response.json()['results']]
         return groups
 
+    @retry()
     def get_system_info_page(self):
         login_url = f'{self.host}/dologin.action'
         auth_url = f'{self.host}/doauthenticate.action'
@@ -202,9 +203,9 @@ class ConfluenceRestClient(RestClient):
         }
 
         auth_body = {
-            'destination': '/admin/systeminfo.action',
             'authenticate': 'Confirm',
-            'password': self.password
+            'destination': '/admin/systeminfo.action',
+            'password': self.password,
         }
 
         login_page_response = self.session.get(login_url)
@@ -219,15 +220,28 @@ class ConfluenceRestClient(RestClient):
         else:
             self.session.post(url=tsv_auth_url, json=tsv_login_body)
 
-        self.headers['X-Atlassian-Token'] = 'no-check'
-        system_info_html = self.session.post(url=auth_url, data=auth_body, headers=self.headers)
-        return system_info_html.content.decode("utf-8")
+        system_info_html = self.session.post(url=auth_url, data=auth_body, headers={'X-Atlassian-Token': 'no-check'}, verify=self.verify)
+        page_decoded = system_info_html.content.decode("utf-8")
+        if page_decoded:
+            return page_decoded
+        else:
+            raise Exception(f"ERROR: System info page is empty. Content: {page_decoded}")
+
+    def get_installed_apps(self):
+        plugins_url = f'{self.host}/rest/plugins/1.0/'
+        r = self.get(plugins_url, error_msg="ERROR: Could not get installed plugins.",
+                     headers={'X-Atlassian-Token': 'no-check'})
+        return r.json()['plugins']
+
 
     def get_deployment_type(self):
-        html_pattern = 'com.atlassian.dcapt.deployment=terraform'
-        confluence_system_page = self.get_system_info_page()
-        if confluence_system_page.count(html_pattern):
-            return 'terraform'
+        try:
+            html_pattern = 'deployment=terraform'
+            confluence_system_page = self.get_system_info_page()
+            if confluence_system_page.count(html_pattern):
+                return 'terraform'
+        except Exception as e:
+            print(f"Warning: Could not get deployment type. Error: {e}")
         return 'other'
 
     def get_node_ip(self, node_id: str) -> str:

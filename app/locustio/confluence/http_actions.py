@@ -12,6 +12,9 @@ import uuid
 logger = init_logger(app_type='confluence')
 confluence_dataset = confluence_datasets()
 
+TWO_WORDS_CQL = 'confluence agreement'
+THREE_WORDS_CQL = 'shoulder trip discussion'
+
 
 @confluence_measure('locust_login_and_view_dashboard')
 def login_and_view_dashboard(locust):
@@ -125,9 +128,6 @@ def view_page(locust):
                 json=params.resources_body.get("110"),
                 headers=RESOURCE_HEADERS,
                 catch_response=True)
-
-    # 120 rest/helptips/1.0/tips
-    locust.get('/rest/helptips/1.0/tips', catch_response=True)
 
     # 130 rest/inlinecomments/1.0/comments
     r = locust.get(f'/rest/inlinecomments/1.0/comments'
@@ -310,9 +310,6 @@ def view_blog(locust):
                 headers=RESOURCE_HEADERS,
                 catch_response=True)
 
-    # 360 rest/helptips/1.0/tips
-    locust.get('/rest/helptips/1.0/tips', catch_response=True)
-
     # 370 rest/inlinecomments/1.0/comments
     r = locust.get(f'/rest/inlinecomments/1.0/comments'
                    f'?containerId={blog_id}'
@@ -402,9 +399,8 @@ def view_blog(locust):
                catch_response=True)
 
 
-def search_cql_and_view_results(locust):
+def search_cql_two_words_and_view_results(locust):
     raise_if_login_failed(locust)
-    cql = random.choice(confluence_dataset["cqls"])[0]
 
     @confluence_measure('locust_search_cql:recently_viewed')
     def search_recently_viewed():
@@ -413,11 +409,11 @@ def search_cql_and_view_results(locust):
                    '?limit=8',
                    catch_response=True)
 
-    @confluence_measure('locust_search_cql:search_results')
+    @confluence_measure('locust_search_cql:search_results_2_words')
     def search_cql():
         # 530 rest/api/search
         r = locust.get(f"/rest/api/search"
-                       f"?cql=siteSearch~'{cql}'"
+                       f"?cql=siteSearch~'{TWO_WORDS_CQL}'"
                        f"&start=0"
                        f"&limit=20",
                        catch_response=True)
@@ -434,6 +430,31 @@ def search_cql_and_view_results(locust):
 
     search_recently_viewed()
     search_cql()
+
+def search_cql_three_words(locust):
+    raise_if_login_failed(locust)
+
+    @confluence_measure('locust_search_cql:search_results_3_words')
+    def search_cql():
+        # 530 rest/api/search
+        r = locust.get(f"/rest/api/search"
+                       f"?cql=siteSearch~'{THREE_WORDS_CQL}'"
+                       f"&start=0"
+                       f"&limit=20",
+                       catch_response=True)
+
+        if '{"results":[' not in r.content.decode('utf-8'):
+            logger.locust_info(r.content.decode('utf-8'))
+        content = r.content.decode('utf-8')
+        if 'results' not in content:
+            logger.error(f"Search cql failed: {content}")
+        assert 'results' in content, "Search cql failed."
+
+        # 540 rest/mywork/latest/status/notification/count
+        locust.get('/rest/mywork/latest/status/notification/count', catch_response=True)
+
+    search_cql()
+
 
 
 def open_editor_and_create_blog(locust):
@@ -663,9 +684,6 @@ def open_editor_and_create_blog(locust):
         # 800 s/en_GB/{build-number}/{keyboardshortcut-hash}/_/images/icons/profilepics/add_profile_pic.svg
         locust.get(f'/s/en_GB/{build_number}/{keyboard_hash}/_/images/icons/profilepics/add_profile_pic.svg',
                    catch_response=True)
-
-        # 810 rest/helptips/1.0/tips
-        locust.get('/rest/helptips/1.0/tips', catch_response=True)
 
         # 820 rest/mywork/latest/status/notification/count
         locust.get(f'/rest/mywork/latest/status/notification/count'
@@ -948,9 +966,6 @@ def create_and_edit_page(locust):
                     headers=RESOURCE_HEADERS,
                     catch_response=True)
 
-        # 1190 rest/helptips/1.0/tips
-        locust.get('/rest/helptips/1.0/tips', catch_response=True)
-
         # 1200 rest/inlinecomments/1.0/comments
         locust.get(f'/rest/inlinecomments/1.0/comments'
                    f'?containerId={locust.session_data_storage["content_id"]}'
@@ -1206,9 +1221,6 @@ def create_and_edit_page(locust):
                     json=params.resources_body.get("1500"),
                     headers=RESOURCE_HEADERS,
                     catch_response=True)
-
-        # 1510 rest/helptips/1.0/tips
-        locust.get('/rest/helptips/1.0/tips', catch_response=True)
 
         locust.get(f'/rest/inlinecomments/1.0/comments'
                    f'?containerId={locust.session_data_storage["content_id"]}'
