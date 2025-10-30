@@ -1,7 +1,8 @@
 import random
 
 from selenium.webdriver.common.by import By
-
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium_ui.base_page import BasePage
 from selenium_ui.conftest import print_timing
 from selenium_ui.jira.pages.pages import Login, AdminPage
@@ -10,6 +11,7 @@ from util.conf import JIRA_SETTINGS
 
 def app_specific_action(webdriver, datasets):
     page = BasePage(webdriver)
+    wait = WebDriverWait(webdriver, 10) # 10 seconds timeout
     if datasets['custom_issues']:
         issue_key = datasets['custom_issue_key']
 
@@ -43,7 +45,16 @@ def app_specific_action(webdriver, datasets):
         def sub_measure():
             page.go_to_url(f"{JIRA_SETTINGS.server_url}/browse/{issue_key}")
             page.wait_until_visible((By.ID, "summary-val"))  # Wait for summary field visible
-            page.wait_until_visible((By.ID, "ID_OF_YOUR_APP_SPECIFIC_UI_ELEMENT"))  # Wait for you app-specific UI element by ID selector
+            page.wait_until_visible((By.ID, "opsbar-operations_more"))  # Wait for More button visible
+            more_btn = webdriver.find_element(By.ID, 'opsbar-operations_more')
+            more_btn.click()
+            page.wait_until_visible((By.ID, "drawio-add-menu-item"))  # Wait for you app-specific UI element by ID selector
+            drawio_btn = webdriver.find_element(By.ID, 'drawio-add-menu-item')
+            drawio_btn.click()
+            page.wait_until_visible((By.ID, "drawioEditor")) # Wait for draw.io editor iframe
+            drawio_iframe = webdriver.find_element(By.ID, "drawioEditor") 
+            webdriver.switch_to.frame(drawio_iframe)
+            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "geDiagramContainer"))) 
         sub_measure()
     measure()
 
