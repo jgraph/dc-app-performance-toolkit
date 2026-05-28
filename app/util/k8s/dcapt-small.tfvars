@@ -72,6 +72,12 @@ max_cluster_capacity = 2
 # This can be used in case you hit the limit which can happen if 30+ whitelist_cidrs are provided.
 #enable_https_ingress = false
 
+# Use Gateway API (Envoy Gateway) instead of NGINX Ingress controller.
+# When set to true, Envoy Gateway is deployed as a drop-in replacement for NGINX. Only one can be active per deployment.
+# If `domain` is set, HTTPS is used with TLS termination via ACM cert; otherwise the raw NLB hostname is used over HTTP.
+# For Bitbucket, SSH on port 7999 is handled natively via TCPRoute (no manual ELB listener modification needed).
+use_gateway_api = "true"
+
 ################################################################################
 # Jira/JSM Settings
 ################################################################################
