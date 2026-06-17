@@ -4,7 +4,7 @@ platform: platform
 product: marketplace
 category: devguide
 subcategory: build
-date: "2026-05-19"
+date: "2026-06-17"
 ---
 # Data Center App Performance Toolkit User Guide For Jira
 
