@@ -11,7 +11,6 @@ import random
 
 
 def app_specific_action(webdriver, datasets):
-    webdriver.implicitly_wait(20)
     page = BasePage(webdriver)
     if datasets['custom_pages']:
         app_specific_page_id = datasets['custom_page_id']
@@ -63,22 +62,22 @@ def app_specific_action(webdriver, datasets):
             create_button = webdriver.find_element(By.ID, "create-button")
             create_button.click()
             page.wait_until_visible((By.ID, "drawioEditor")) # Wait for draw.io editor iframe
-            #drawio_iframe = webdriver.find_element(By.ID, "drawioEditor") 
-            #webdriver.switch_to.frame(drawio_iframe)
-            #page.wait_until_visible((By.CLASS_NAME, "geDiagramContainer"))
+            drawio_iframe = webdriver.find_element(By.ID, "drawioEditor") 
+            webdriver.switch_to.frame(drawio_iframe)
+            page.wait_until_visible((By.CLASS_NAME, "geDiagramContainer"))
             # Add diagram elements
-            #diagram_container = webdriver.find_element(By.CLASS_NAME, "geDiagramContainer")
-            #diagram_container.click()
-            #diagram_container.send_keys("D")
+            diagram_container = webdriver.find_element(By.CLASS_NAME, "geDiagramContainer")
+            diagram_container.click()
+            diagram_container.send_keys("D")
             # Publish the diagram
-            #publish_button = webdriver.find_element(By.XPATH, "//div[@class='geButtonContainer']/button[1]")
-            #publish_button.click()
-            #page.wait_until_visible((By.CLASS_NAME, "geDialog"))
-            #diagram_name = webdriver.find_element(By.XPATH, "//div[@class='geDialog']//input")
-            #diagram_name.send_keys(str(random.randint(1, 100000)) + "Test Diagram.drawio")
-            #diagram_name.send_keys(Keys.ENTER)
-            #webdriver.switch_to.default_content()
-            #webdriver.switch_to.frame(editor_iframe)
-            #page.wait_until_visible((By.CSS_SELECTOR, "img[data-macro-name='drawio']"))
+            publish_button = webdriver.find_element(By.XPATH, "//div[@class='geButtonContainer']/button[1]")
+            publish_button.click()
+            page.wait_until_visible((By.CLASS_NAME, "geDialog"))
+            diagram_name = webdriver.find_element(By.XPATH, "//div[@class='geDialog']//input")
+            diagram_name.send_keys(str(random.randint(1, 100000)) + "Test Diagram.drawio")
+            diagram_name.send_keys(Keys.ENTER)
+            webdriver.switch_to.default_content()
+            webdriver.switch_to.frame(editor_iframe)
+            page.wait_until_visible((By.CSS_SELECTOR, "img[data-macro-name='drawio']"))
         sub_measure()
     measure()
