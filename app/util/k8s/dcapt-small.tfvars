@@ -72,6 +72,12 @@ max_cluster_capacity = 2
 # This can be used in case you hit the limit which can happen if 30+ whitelist_cidrs are provided.
 #enable_https_ingress = false
 
+# Use Gateway API (Envoy Gateway) instead of NGINX Ingress controller.
+# When set to true, Envoy Gateway is deployed as a drop-in replacement for NGINX. Only one can be active per deployment.
+# If `domain` is set, HTTPS is used with TLS termination via ACM cert; otherwise the raw NLB hostname is used over HTTP.
+# For Bitbucket, SSH on port 7999 is handled natively via TCPRoute (no manual ELB listener modification needed).
+# use_gateway_api = "true"
+
 ################################################################################
 # Jira/JSM Settings
 ################################################################################
@@ -89,10 +95,10 @@ jira_image_repository = "atlassian/jira-software"
 
 # Supported versions by DCAPT: https://github.com/atlassian/dc-app-performance-toolkit#supported-versions
 # Jira version.
-jira_version_tag = "10.3.9"
+jira_version_tag = "11.3.1"
 # JSM version
 # ! REQUIRED for JSM !
-# jira_version_tag = "10.3.9"
+# jira_version_tag = "11.3.1"
 
 # Dataset size. Used only when snapshots_json_file_path is defined. Defaults to large
 jira_dataset_size = "small"
@@ -161,7 +167,7 @@ jira_additional_jvm_args = ["-Dupm.plugin.upload.enabled=true"]
 ################################################################################
 
 # Supported versions by DCAPT: https://github.com/atlassian/dc-app-performance-toolkit#supported-versions
-confluence_version_tag = "9.2.7"
+confluence_version_tag = "10.2.2"
 
 # Dataset size. Used only when snapshots_json_file_path is defined. Defaults to large
 confluence_dataset_size = "small"
@@ -238,7 +244,7 @@ confluence_additional_jvm_args = ["-Dupm.plugin.upload.enabled=true"]
 ################################################################################
 
 # Supported versions by DCAPT: https://github.com/atlassian/dc-app-performance-toolkit#supported-versions
-bitbucket_version_tag = "9.4.9"
+bitbucket_version_tag = "9.4.12"
 
 # Dataset size. Used only when snapshots_json_file_path is defined. Defaults to large
 bitbucket_dataset_size = "small"

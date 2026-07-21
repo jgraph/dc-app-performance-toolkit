@@ -2,13 +2,12 @@ import logging
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
 from time import sleep, time
+from functools import wraps
 
 import boto3
 import botocore
 from boto3.exceptions import Boto3Error
 from botocore import exceptions
-
-from retry import retry
 
 DEFAULT_RETRY_COUNT = 3
 DEFAULT_RETRY_DELAY = 10
@@ -16,6 +15,23 @@ DEFAULT_RETRY_DELAY = 10
 US_EAST_2 = "us-east-2"
 US_EAST_1 = "us-east-1"
 REGIONS = [US_EAST_2, US_EAST_1]
+
+
+def retry(exception_type=Exception, tries=DEFAULT_RETRY_COUNT, delay=DEFAULT_RETRY_DELAY):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(tries):
+                try:
+                    return func(*args, **kwargs)
+                except exception_type as e:
+                    logging.error(f"Attempt {attempt + 1} failed with error: {e}")
+                    if attempt < tries - 1:
+                        sleep(delay)
+                    else:
+                        raise
+        return wrapper
+    return decorator
 
 
 def is_float(element):
@@ -268,7 +284,7 @@ def delete_hosted_zone_record_if_exists(aws_region, cluster_name):
             logging.error(f"Unexpected error occurs: {e}")
 
 
-@retry(Exception, tries=DEFAULT_RETRY_COUNT, delay=DEFAULT_RETRY_DELAY)
+@retry()
 def delete_lb(aws_region, vpc_id):
     elb_client = boto3.client('elb', region_name=aws_region)
     try:
@@ -313,7 +329,7 @@ def wait_for_nat_gateway_delete(ec2, nat_gateway_id):
         logging.error(f"NAT gateway with id {nat_gateway_id} was not deleted in {timeout} seconds.")
 
 
-@retry(Exception, tries=DEFAULT_RETRY_COUNT, delay=DEFAULT_RETRY_DELAY)
+@retry()
 def delete_nat_gateway(aws_region, vpc_id):
     ec2_client = boto3.client('ec2', region_name=aws_region)
     filters = [{'Name': 'vpc-id', 'Values': [f'{vpc_id}', ]}, ]
@@ -333,7 +349,7 @@ def delete_nat_gateway(aws_region, vpc_id):
                 logging.error(f"Deleting NAT gateway with id {nat_gateway_id} failed with error: {e}")
 
 
-@retry(Exception, tries=DEFAULT_RETRY_COUNT, delay=DEFAULT_RETRY_DELAY)
+@retry()
 def delete_igw(ec2_resource, vpc_id):
     vpc_resource = ec2_resource.Vpc(vpc_id)
     igws = vpc_resource.internet_gateways.all()
@@ -355,7 +371,7 @@ def delete_igw(ec2_resource, vpc_id):
                     logging.error(f"Deleting igw failed with error: {e}")
 
 
-@retry(Exception, tries=12, delay=DEFAULT_RETRY_DELAY)
+@retry(tries=12)
 def delete_subnets(ec2_resource, vpc_id, aws_region):
     vpc_resource = ec2_resource.Vpc(vpc_id)
     subnets_all = vpc_resource.subnets.all()
@@ -381,7 +397,7 @@ def delete_subnets(ec2_resource, vpc_id, aws_region):
             logging.error(f"Delete of subnet failed with error: {e}")
 
 
-@retry(Exception, tries=DEFAULT_RETRY_COUNT, delay=DEFAULT_RETRY_DELAY)
+@retry()
 def delete_route_tables(ec2_resource, vpc_id):
     vpc_resource = ec2_resource.Vpc(vpc_id)
     rtbs = vpc_resource.route_tables.all()
@@ -398,7 +414,7 @@ def delete_route_tables(ec2_resource, vpc_id):
             logging.error(f"Delete of route table failed with error: {e}")
 
 
-@retry(Exception, tries=DEFAULT_RETRY_COUNT, delay=DEFAULT_RETRY_DELAY)
+@retry()
 def delete_security_groups(ec2_resource, vpc_id):
     vpc_resource = ec2_resource.Vpc(vpc_id)
     sgps = vpc_resource.security_groups.all()
@@ -969,6 +985,70 @@ def delete_dynamo_bucket_tf_state(cluster_name, aws_region):
             logging.warning(f"Could not delete dynamo db '{table}': {e}")
 
 
+def dynamodb_list_tables_all(dynamodb_client):
+    table_names = []
+    paginator = dynamodb_client.get_paginator('list_tables')
+    for page in paginator.paginate():
+        table_names.extend(page.get('TableNames', []))
+    return table_names
+
+
+def delete_expired_dynamodb_tables():
+    for rgn in REGIONS:
+        logging.info(f"Region: {rgn}")
+        dynamodb_client = boto3.client('dynamodb', region_name=rgn)
+        try:
+            table_names = dynamodb_list_tables_all(dynamodb_client)
+        except exceptions.EndpointConnectionError as e:
+            logging.error(f"Could not connect to DynamoDB endpoint URL: {e}")
+            continue
+
+        for table_name in table_names:
+            if not table_name.startswith('atl_dc_'):
+                continue
+            try:
+                table_desc = dynamodb_client.describe_table(TableName=table_name).get('Table', {})
+            except botocore.exceptions.ClientError as e:
+                logging.warning(f"Could not describe DynamoDB table {table_name}: {e}")
+                continue
+
+            table_arn = table_desc.get('TableArn')
+            if not table_arn:
+                continue
+
+            try:
+                response = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
+                tags = response.get('Tags', [])
+            except botocore.exceptions.ClientError as e:
+                raise RuntimeError(f"Could not list tags for {table_arn}: {e}")
+            persist_days = next((tag.get('Value') for tag in tags if tag.get('Key') == 'persist_days'), None)
+            if not persist_days:
+                logging.warning(f"DynamoDB table {table_name} does not have 'persist_days' tag; skipping")
+                continue
+            if not is_float(persist_days):
+                persist_days = 0
+
+            created_at = table_desc.get('CreationDateTime')
+            if not created_at:
+                logging.warning(f"DynamoDB table {table_name} has no CreationDateTime; skipping")
+                continue
+
+            created_date_timestamp = created_at.timestamp()
+            persist_seconds = float(persist_days) * 24 * 60 * 60
+            now = time()
+            if created_date_timestamp + persist_seconds > now:
+                logging.info(f"DynamoDB table {table_name} is not EOL yet; skipping")
+                continue
+
+            try:
+                logging.info(
+                    f"DynamoDB table {table_name} is EOL (created_at={created_at.isoformat()}, persist_days={persist_days}); deleting"
+                )
+                dynamodb_client.delete_table(TableName=table_name)
+            except botocore.exceptions.ClientError as e:
+                logging.warning(f"Could not delete DynamoDB table {table_name}: {e}")
+
+
 def delete_expired_tf_state_s3_buckets():
     for rgn in REGIONS:
         logging.info(f"Region: {rgn}")
@@ -1130,6 +1210,8 @@ def main():
     delete_unused_volumes()
     logging.info("Search for abandoned S3 buckets")
     delete_expired_tf_state_s3_buckets()
+    logging.info("Search for abandoned DynamoDB tables")
+    delete_expired_dynamodb_tables()
 
 
 if __name__ == '__main__':

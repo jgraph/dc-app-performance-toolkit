@@ -5,22 +5,22 @@ This repository contains Taurus scripts for performance testing of Atlassian Dat
 
 ## Supported versions
 * Supported Jira versions: 
-    * Jira [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `9.12.26`, `10.3.9` and `11.0.0` Platform release
+    * Jira [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `10.3.15`, `11.3.1`
 
 * Supported Jira Service Management versions: 
-    * Jira Service Management [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `5.12.26`, `10.3.9` and `11.0.0` Platform release
+    * Jira Service Management [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `10.3.15`, `11.3.1`
     
 * Supported Confluence versions:
-    * Confluence [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `8.5.25`, `9.2.7` and `10.0.2` Platform release
+    * Confluence [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `9.2.13`, `10.2.2`
 
 * Supported Bitbucket Server versions:
-    * Bitbucket Server [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `8.19.21` and `9.4.9`
+    * Bitbucket Server [Long Term Support release](https://confluence.atlassian.com/enterprise/atlassian-enterprise-releases-948227420.html): `8.19.24`, `9.4.12` and `10.0.1` Platform release
 
 * Supported Crowd versions:
-    * Crowd [release notes](https://confluence.atlassian.com/crowd/crowd-release-notes-199094.html): `6.3.2`
+    * Crowd [release notes](https://confluence.atlassian.com/crowd/crowd-release-notes-199094.html): `7.1.3`
   
 * Supported Bamboo versions:
-    * Bamboo [Long Term Support release](https://confluence.atlassian.com/bamboo/bamboo-release-notes-671089224.html): `10.2.7`
+    * Bamboo [Long Term Support release](https://confluence.atlassian.com/bamboo/bamboo-release-notes-671089224.html): `10.2.14`
   
 ## Support
 In case of technical questions, issues or problems with DC Apps Performance Toolkit, contact us for support in the [community Slack](https://go.atlassian.com/dcapt-community-slack) **#data-center-app-performance-toolkit** channel.
@@ -28,7 +28,7 @@ In case of technical questions, issues or problems with DC Apps Performance Tool
 ## Installation and set up
 
 #### Dependencies
-* Python 3.9 - 3.13 and pip
+* Python 3.10 - 3.13 and pip
 * JDK 17 or JDK 21
 * Google Chrome web browser
 * Git client (only for Bitbucket DC)
@@ -75,6 +75,10 @@ source venv/bin/activate
 4. Install dependencies:
 ```
 pip install -r requirements.txt
+```
+5. Optional: to use locust as main load-executor while running tests uninstall 'trio' and 'trio-websocket because they conflict with gevent monkey-patching used by bzt's Locust wrapper:
+```
+pip uninstall -y trio trio-websocket
 ```
 
 ### Linux setup

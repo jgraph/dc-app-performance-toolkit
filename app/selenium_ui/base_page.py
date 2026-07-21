@@ -4,7 +4,7 @@ from collections import OrderedDict
 import time
 
 from packaging import version
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import WebDriverException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
@@ -79,6 +79,14 @@ class BasePage:
         return self.__wait_until(expected_condition=ec.visibility_of_element_located(selector), locator=selector,
                                  time_out=timeout)
 
+    def became_visible_in_time(self, selector, timeout):
+        try:
+            self.__wait_until(expected_condition=ec.visibility_of_element_located(selector), locator=selector,
+                                 time_out=timeout)
+            return True
+        except TimeoutException:
+            return False
+
     def wait_until_available_to_switch(self, selector):
         return self.__wait_until(expected_condition=ec.frame_to_be_available_and_switch_to_it(selector),
                                  locator=selector,
@@ -108,6 +116,17 @@ class BasePage:
                            selector_text in selector_text_list)
         return self.__wait_until(expected_condition=any_ec, locator=selector_text_list, time_out=timeout)
 
+    def safe_click(self, locator, retries=3, delay=0.5):
+        for attempt in range(retries):
+            try:
+                self.wait_until_clickable(locator).click()
+                return
+            except StaleElementReferenceException:
+                if attempt < retries - 1:
+                    time.sleep(delay)
+                else:
+                    raise
+
     def __wait_until(self, expected_condition, locator, time_out=timeout):
         message = f"Error in wait_until: "
         ec_type = type(expected_condition)
@@ -130,18 +149,61 @@ class BasePage:
             message += (f"Timed out after {time_out} sec waiting for {str(expected_condition)}. \n"
                         f"Locator: {locator}{str(expected_condition)}")
 
-        return WebDriverWait(self.driver, time_out).until(expected_condition, message=message)
+        try:
+            return WebDriverWait(self.driver, time_out).until(expected_condition, message=message)
+        except StaleElementReferenceException:
+            print(f"Stale element reference detected for {locator}, retrying wait...")
+            return WebDriverWait(self.driver, time_out).until(expected_condition, message=message)
+
+    def wait_for_dom_mutations_complete(self, timeout=10):
+        start_time = time.time()
+        script = """
+        var callback = arguments[arguments.length - 1];
+        var timeout = arguments[0] * 1000;
+        var lastMutation = Date.now();
+        var startTime = Date.now();
+
+        var observer = new MutationObserver(function() {
+            lastMutation = Date.now();
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true
+        });
+
+        var interval = setInterval(function() {
+            if (Date.now() - lastMutation > 500) {
+                observer.disconnect();
+                clearInterval(interval);
+                callback(true);
+            } else if (Date.now() - startTime > timeout) {
+                observer.disconnect();
+                clearInterval(interval);
+                callback(false);
+            }
+        }, 100);
+        """
+        complete = self.driver.execute_async_script(script, timeout)
+        if not complete:
+            print(f'WARNING: DOM mutations did not complete in {timeout} s')
+        else:
+            print(f'DOM mutations completed after {time.time() - start_time} s')
+        return complete
 
     def dismiss_popup(self, popup_selectors):
+        dismissed = False
         for selector_type, selector_value in popup_selectors:
             if self.driver.find_elements(by=selector_type, value=selector_value):
                 try:
-                    if selector_type == By.CSS_SELECTOR:
-                        self.driver.execute_script(f"document.querySelector('{selector_value}').click()")
-                    elif selector_type == By.XPATH:
-                        self.driver.find_element(by=selector_type, value=selector_value).click()
+                    self.wait_until_clickable((selector_type, selector_value), 1).click()
+                    dismissed = True
                 except (WebDriverException, Exception):
                     pass
+        if dismissed:
+            self.wait_for_dom_mutations_complete()
+        return dismissed
 
     def return_to_parent_frame(self):
         return self.driver.switch_to.parent_frame()

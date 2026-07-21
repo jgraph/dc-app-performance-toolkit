@@ -4,7 +4,7 @@ platform: platform
 product: marketplace
 category: devguide
 subcategory: build
-date: "2025-09-11"
+date: "2026-06-17"
 ---
 # Data Center App Performance Toolkit User Guide For Bamboo
 
@@ -91,8 +91,7 @@ specifically for performance testing during the DC app review process.
    - `region` - **Do not change default region (`us-east-2`). If specific region is required, contact support.**
 
    {{% note %}}
-   New trial license could be generated on [my atlassian](https://my.atlassian.com/license/evaluation).
-   Use `BX02-9YO1-IN86-LO5G` Server ID for generation.
+   If you don't have a license, you can request a trial one for DCAPT performance testing purposes via your open DC Annual Review ECOHELP ticket.
    {{% /note %}}
 
 6. From local terminal (Git Bash for Windows users) start the installation:
@@ -102,7 +101,7 @@ specifically for performance testing during the DC app review process.
    -v "/$PWD/dcapt.tfvars:/data-center-terraform/conf.tfvars" \
    -v "/$PWD/dcapt-snapshots.json:/data-center-terraform/dcapt-snapshots.json" \
    -v "/$PWD/logs:/data-center-terraform/logs" \
-   -it atlassianlabs/terraform:2.9.10 ./install.sh -c conf.tfvars
+   -it atlassianlabs/terraform:2.9.23 ./install.sh -c conf.tfvars
    ```
 7. Copy product URL from the console output. Product url should look like `http://a1234-54321.us-east-2.elb.amazonaws.com/bamboo`.
 8. Wait for all remote agents to be started and connected. It can take up to 10 minutes. Agents can be checked in `Settings` > `Agents`.
@@ -303,7 +302,7 @@ To receive performance baseline results **without** an app installed and **witho
     -e ENVIRONMENT_NAME=$ENVIRONMENT_NAME \
     -v "/$PWD:/data-center-terraform/dc-app-performance-toolkit" \
     -v "/$PWD/app/util/k8s/bzt_on_pod.sh:/data-center-terraform/bzt_on_pod.sh" \
-    -it atlassianlabs/terraform:2.9.10 bash bzt_on_pod.sh bamboo.yml
+    -it atlassianlabs/terraform:2.9.23 bash bzt_on_pod.sh bamboo.yml
     ```
 1. View the following main results of the run in the `dc-app-performance-toolkit/app/results/bamboo/YY-MM-DD-hh-mm-ss` folder:
     - `results_summary.log`: detailed run summary
@@ -334,7 +333,7 @@ To receive performance results with an app installed (still use master branch):
     -e ENVIRONMENT_NAME=$ENVIRONMENT_NAME \
     -v "/$PWD:/data-center-terraform/dc-app-performance-toolkit" \
     -v "/$PWD/app/util/k8s/bzt_on_pod.sh:/data-center-terraform/bzt_on_pod.sh" \
-    -it atlassianlabs/terraform:2.9.10 bash bzt_on_pod.sh bamboo.yml
+    -it atlassianlabs/terraform:2.9.23 bash bzt_on_pod.sh bamboo.yml
     ```
 
 {{% note %}}
@@ -368,7 +367,7 @@ To receive results for Bamboo DC **with app** and **with app-specific actions**:
     -e ENVIRONMENT_NAME=$ENVIRONMENT_NAME \
     -v "/$PWD:/data-center-terraform/dc-app-performance-toolkit" \
     -v "/$PWD/app/util/k8s/bzt_on_pod.sh:/data-center-terraform/bzt_on_pod.sh" \
-    -it atlassianlabs/terraform:2.9.10 bash bzt_on_pod.sh bamboo.yml
+    -it atlassianlabs/terraform:2.9.23 bash bzt_on_pod.sh bamboo.yml
     ```
 
 {{% note %}}
